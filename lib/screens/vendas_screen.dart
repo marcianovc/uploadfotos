@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/venda_model.dart';
 import '../services/database_helper.dart';
 import '../services/image_service.dart';
@@ -22,7 +26,7 @@ class _VendasScreenState extends State<VendasScreen> {
   @override
   void initState() {
     super.initState();
-    _dbHelper = DatabaseHelper(apiBaseUrl: 'http://192.168.100.245:5000');
+    _dbHelper = DatabaseHelper(apiBaseUrl: 'http://192.168.100.82:5000');
     _carregarVendas();
   }
 
@@ -35,12 +39,23 @@ class _VendasScreenState extends State<VendasScreen> {
     try {
       debugPrint('Iniciando consulta de vendas...');
 
+      DateTime now = DateTime.now();
+
+      // Primeiro dia do mês atual
+      DateTime firstDayOfMonth = DateTime(now.year, now.month, 1);
+
+      // Último dia do mês atual
+      DateTime lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+
+      debugPrint('Primeiro dia do mês: $firstDayOfMonth');
+      debugPrint('Último dia do mês: $lastDayOfMonth');
+
       // A função agora retorna diretamente a lista de dados (campo 'data' da API)
       final listaDados = await _dbHelper.consultarVendasCanhotos(
         codFilial: 100,
         codVendedor: 75208,
-        dataInicio: '01.05.2025',
-        dataFim: '31.05.2025',
+        dataInicio: DateFormat('dd.MM.yyyy').format(firstDayOfMonth),
+        dataFim: DateFormat('dd.MM.yyyy').format(lastDayOfMonth),
         filtroCanhotos: 'Todas',
       );
 
@@ -103,32 +118,225 @@ class _VendasScreenState extends State<VendasScreen> {
     ).showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
-  void _visualizarAnexo(String? arquivo) {
-    if (arquivo != null) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Canhoto Digital'),
-          content:
-              arquivo.toLowerCase().endsWith('.jpg') ||
-                  arquivo.toLowerCase().endsWith('.jpeg') ||
-                  arquivo.toLowerCase().endsWith('.png')
-              ? Image.network(
-                  'http://192.168.100.245:5000/uploads/$arquivo',
-                  errorBuilder: (context, error, stackTrace) {
-                    return Text('Não foi possível carregar a imagem');
-                  },
-                )
-              : Text('Anexo: $arquivo'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Fechar'),
+  void _visualizarAnexo(int? anexoId, String? nomeArquivo) async {
+    if (anexoId == null || nomeArquivo == null) {
+      _mostrarSnackBar('Nenhum anexo disponível para visualização');
+      return;
+    }
+
+    try {
+      setState(() => isLoading = true);
+
+      final isImagem =
+          nomeArquivo.toLowerCase().endsWith('.jpg') ||
+          nomeArquivo.toLowerCase().endsWith('.jpeg') ||
+          nomeArquivo.toLowerCase().endsWith('.png');
+
+      if (isImagem) {
+        // Para imagens, baixa e mostra em memória
+        final bytes = await _dbHelper.visualizarAnexo(anexoId: anexoId);
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Canhoto Digital'),
+            content: InteractiveViewer(
+              child: Image.memory(
+                bytes,
+                errorBuilder: (context, error, stackTrace) {
+                  return Text('Não foi possível carregar a imagem');
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Fechar'),
+              ),
+              TextButton(
+                onPressed: () => _downloadAnexo(anexoId, nomeArquivo),
+                child: Text('Download'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Para outros tipos de arquivo, oferece download
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Anexo Digital'),
+            content: Text('Deseja fazer download do arquivo $nomeArquivo?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _downloadAnexo(anexoId, nomeArquivo);
+                },
+                child: Text('Download'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao visualizar anexo: $e');
+      _mostrarSnackBar('Erro ao visualizar anexo: ${e.toString()}');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _downloadAnexo(int anexoId, String nomeArquivo) async {
+    try {
+      setState(() => isLoading = true);
+
+      final bytes = await _dbHelper.visualizarAnexo(
+        anexoId: anexoId,
+        download: true,
+      );
+
+      // Obter o diretório de downloads
+      final directory = await getDownloadsDirectory();
+      if (directory == null) {
+        throw Exception('Não foi possível acessar a pasta de downloads');
+      }
+
+      // Cria o arquivo local
+      final filePath = '${directory.path}/$nomeArquivo';
+      final file = File(filePath);
+
+      // Escreve os bytes no arquivo
+      await file.writeAsBytes(bytes);
+
+      _mostrarSnackBar('Download concluído: $filePath');
+
+      // Opcional: abrir o arquivo após download
+      if (await canLaunch(filePath)) {
+        await launch(filePath);
+      }
+    } catch (e) {
+      debugPrint('Erro no download: $e');
+      _mostrarSnackBar('Erro ao fazer download: ${e.toString()}');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _consultarPorNotaFiscal(int codFilial, int numNf) async {
+    setState(() {
+      isLoading = true;
+      _erroCarregamento = '';
+    });
+
+    try {
+      debugPrint('Iniciando consulta por nota fiscal: $numNf');
+
+      // Adicione este método no seu DatabaseHelper
+      final listaDados = await _dbHelper.consultaNota(
+        codFilial: codFilial, // Substitua pelo código da filial desejada
+        numNf: numNf,
+      );
+
+      debugPrint('Resultado da consulta por nota: ${listaDados.length} itens');
+      if (listaDados.isNotEmpty) {
+        debugPrint('Primeiro item: ${listaDados.first}');
+      }
+
+      final listaVendas = listaDados.map<Venda>((item) {
+        return Venda(
+          vendaId: item['VENDA_ID'] as int,
+          numNf: item['NUM_NF'].toString(),
+          dataComp: DateTime.parse(item['DTACOMP']),
+          parceiro: item['PARCEIRO'].toString(),
+          razaoSocial: item['RAZAO_SOCIAL'].toString(),
+          nomeVendedor: item['NOME_VENDEDOR'].toString(),
+          totalVenda: double.parse(item['TOTAL_VENDA'].toString()),
+          status: item['STATUS'].toString().trim(),
+          anexoId: item['ANEXO_ID'] as int?,
+          descricao: item['DESCRICAO']?.toString(),
+          arquivo: item['ARQUIVO']?.toString(),
+        );
+      }).toList();
+
+      setState(() {
+        vendas = listaVendas;
+        isLoading = false;
+      });
+
+      if (listaVendas.isEmpty) {
+        _mostrarSnackBar('Nenhuma venda encontrada para a nota fiscal $numNf');
+      }
+    } catch (e) {
+      debugPrint('Erro ao consultar por nota fiscal: $e');
+      setState(() {
+        isLoading = false;
+        _erroCarregamento = 'Erro ao consultar nota fiscal: ${e.toString()}';
+      });
+      _mostrarSnackBar(_erroCarregamento);
+    }
+  }
+
+  void _mostrarDialogoBuscaNota() {
+    final codFilialController = TextEditingController();
+    final numNfController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Consultar Nota Fiscal'),
+        content: Column(
+          mainAxisSize:
+              MainAxisSize.min, // Evita que o Column ocupe todo o espaço
+          children: [
+            TextField(
+              controller: codFilialController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Código da Filial',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16), // Espaçamento entre os campos
+            TextField(
+              controller: numNfController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Número da Nota Fiscal',
+                border: OutlineInputBorder(),
+              ),
             ),
           ],
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final codFilial = int.tryParse(codFilialController.text);
+              final numNf = int.tryParse(numNfController.text);
+
+              if (codFilial != null && numNf != null) {
+                Navigator.pop(context);
+                _consultarPorNotaFiscal(
+                  codFilial,
+                  numNf,
+                ); // Passa ambos os valores
+              } else {
+                _mostrarSnackBar('Preencha ambos os campos corretamente!');
+              }
+            },
+            child: const Text('Buscar'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -137,6 +345,10 @@ class _VendasScreenState extends State<VendasScreen> {
       appBar: AppBar(
         title: Text('Vendas - Canhotos (${vendas.length})'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.search),
+            onPressed: () => _mostrarDialogoBuscaNota(),
+          ),
           IconButton(icon: Icon(Icons.refresh), onPressed: _carregarVendas),
         ],
       ),
@@ -280,7 +492,8 @@ class _VendasScreenState extends State<VendasScreen> {
                   alignment: Alignment.centerRight,
                   child: IconButton(
                     icon: Icon(Icons.photo_camera, color: Colors.blue),
-                    onPressed: () => _visualizarAnexo(venda.arquivo),
+                    onPressed: () =>
+                        _visualizarAnexo(venda.anexoId, venda.arquivo),
                   ),
                 ),
             ],

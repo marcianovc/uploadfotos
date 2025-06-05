@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -149,6 +150,65 @@ class DatabaseHelper {
     } catch (e) {
       debugPrint('Erro ao consultar vendas: $e');
       throw Exception('Erro ao consultar vendas: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> consultaNota({
+    required int codFilial,
+    required int numNf,
+  }) async {
+    try {
+      final url = Uri.parse('$_apiBaseUrl/vendas/nota');
+      debugPrint('Enviando requisição para: $url');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'codfilial': codFilial, 'numnf': numNf}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        } else {
+          throw Exception('API retornou erro: ${data['error']}');
+        }
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(
+          'Erro na API: ${error['error']} (Código: ${error['error_code']})',
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao consultar vendas: $e');
+      throw Exception('Erro ao consultar vendas: $e');
+    }
+  }
+
+  Future<Uint8List> visualizarAnexo({
+    required int anexoId,
+    bool download = false,
+  }) async {
+    try {
+      final url = Uri.parse(
+        '$_apiBaseUrl/anexos/$anexoId${download ? '?download=true' : ''}',
+      );
+      debugPrint('Solicitando anexo: $url');
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(
+          'Erro ao obter anexo: ${error['error']} (Código: ${error['error_code']})',
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro na requisição do anexo: $e');
+      throw Exception('Erro ao acessar anexo: $e');
     }
   }
 }
