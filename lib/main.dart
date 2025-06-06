@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'screens/vendas_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/login_screen.dart';
+import 'services/auth_service.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -16,7 +19,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: VendasScreen(),
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
