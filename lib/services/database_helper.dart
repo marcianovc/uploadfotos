@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uploadfotos/services/image_service.dart';
 
 class DatabaseHelper {
   String _apiBaseUrl = '';
@@ -86,39 +87,22 @@ class DatabaseHelper {
 
   Future<void> atualizarAnexo(int vendaId, String caminhoArquivo) async {
     try {
-      // Primeiro converte a imagem para base64
-      final bytes = await http.readBytes(Uri.file(caminhoArquivo));
-      final base64Image = base64Encode(bytes);
-
-      final response = await http.post(
-        Uri.parse('$_apiBaseUrl/execute'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'sql': '''
-            EXECUTE BLOCK
-            AS
-            DECLARE VARIABLE novo_id INTEGER;
-            BEGIN
-              -- Inserir na tabela anexos
-              INSERT INTO anexos (descricao, arquivo, data_cadastro)
-              VALUES ('Canhoto Assinado', ?, CURRENT_DATE)
-              RETURNING anexo_id INTO :novo_id;
-              
-              -- Vincular à venda
-              INSERT INTO anexos_vendas (venda_id, anexo_id)
-              VALUES (?, :novo_id);
-            END
-          ''',
-          'params': [base64Image, vendaId],
-        }),
+      final imageService = ImageService();
+      final uploadResult = await imageService.uploadFoto(
+        filePath: caminhoArquivo,
+        vendaId: vendaId,
+        apiBaseUrl: _apiBaseUrl,
+        descricao: 'Canhoto assinado',
       );
 
-      if (response.statusCode != 200) {
-        final error = json.decode(response.body);
-        throw Exception('Erro na API: ${error['error']} - ${error['details']}');
+      if (!uploadResult['success']) {
+        throw Exception(uploadResult['error'] ?? 'Erro desconhecido no upload');
       }
+
+      debugPrint('Upload realizado com sucesso: ${uploadResult['filename']}');
     } catch (e) {
-      throw Exception('Erro ao atualizar anexo: $e');
+      debugPrint('Erro ao atualizar anexo: $e');
+      rethrow;
     }
   }
 
