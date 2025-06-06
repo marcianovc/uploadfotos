@@ -148,10 +148,7 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<String, dynamic>>> consultaNota({
-    required int codFilial,
-    required int numNf,
-  }) async {
+  Future<List<Map<String, dynamic>>> consultaNota({required int numNf}) async {
     try {
       final url = Uri.parse('$_apiBaseUrl/vendas/nota');
       debugPrint('Enviando requisição para: $url');
@@ -159,7 +156,7 @@ class DatabaseHelper {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'codfilial': codFilial, 'numnf': numNf}),
+        body: json.encode({'numnf': numNf}),
       );
 
       if (response.statusCode == 200) {

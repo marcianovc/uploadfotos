@@ -228,7 +228,7 @@ class _VendasScreenState extends State<VendasScreen> {
     }
   }
 
-  Future<void> _consultarPorNotaFiscal(int codFilial, int numNf) async {
+  Future<void> _consultarPorNotaFiscal(int numNf) async {
     setState(() {
       isLoading = true;
       _erroCarregamento = '';
@@ -238,10 +238,7 @@ class _VendasScreenState extends State<VendasScreen> {
       debugPrint('Iniciando consulta por nota fiscal: $numNf');
 
       // Adicione este método no seu DatabaseHelper
-      final listaDados = await _dbHelper.consultaNota(
-        codFilial: codFilial, // Substitua pelo código da filial desejada
-        numNf: numNf,
-      );
+      final listaDados = await _dbHelper.consultaNota(numNf: numNf);
 
       debugPrint('Resultado da consulta por nota: ${listaDados.length} itens');
       if (listaDados.isNotEmpty) {
@@ -294,14 +291,6 @@ class _VendasScreenState extends State<VendasScreen> {
           mainAxisSize:
               MainAxisSize.min, // Evita que o Column ocupe todo o espaço
           children: [
-            TextField(
-              controller: codFilialController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Código da Filial',
-                border: OutlineInputBorder(),
-              ),
-            ),
             const SizedBox(height: 16), // Espaçamento entre os campos
             TextField(
               controller: numNfController,
@@ -320,15 +309,11 @@ class _VendasScreenState extends State<VendasScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final codFilial = int.tryParse(codFilialController.text);
               final numNf = int.tryParse(numNfController.text);
 
-              if (codFilial != null && numNf != null) {
+              if (numNf != null) {
                 Navigator.pop(context);
-                _consultarPorNotaFiscal(
-                  codFilial,
-                  numNf,
-                ); // Passa ambos os valores
+                _consultarPorNotaFiscal(numNf); // Passa ambos os valores
               } else {
                 _mostrarSnackBar('Preencha ambos os campos corretamente!');
               }
