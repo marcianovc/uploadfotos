@@ -2,11 +2,22 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DatabaseHelper {
-  final String _apiBaseUrl;
+  String _apiBaseUrl = '';
 
-  DatabaseHelper({required String apiBaseUrl}) : _apiBaseUrl = apiBaseUrl;
+  DatabaseHelper() {
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final host = prefs.getString('api_host') ?? '192.168.100.82';
+    final port = prefs.getString('api_port') ?? '5000';
+    _apiBaseUrl = 'http://$host:$port';
+    debugPrint('Configuração da API carregada: $_apiBaseUrl');
+  }
 
   Future<List<Map<String, dynamic>>> executarConsulta(
     Map<String, dynamic> params,

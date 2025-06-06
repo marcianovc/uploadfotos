@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uploadfotos/screens/api_config_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/venda_model.dart';
 import '../services/database_helper.dart';
@@ -26,7 +27,7 @@ class _VendasScreenState extends State<VendasScreen> {
   @override
   void initState() {
     super.initState();
-    _dbHelper = DatabaseHelper(apiBaseUrl: 'http://192.168.100.82:5000');
+    _dbHelper = DatabaseHelper();
     _carregarVendas();
   }
 
@@ -345,6 +346,22 @@ class _VendasScreenState extends State<VendasScreen> {
       appBar: AppBar(
         title: Text('Vendas - Canhotos (${vendas.length})'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () async {
+              final configUpdated = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ApiConfigScreen(),
+                ),
+              );
+
+              if (configUpdated == true) {
+                // Recarregar dados se as configurações foram atualizadas
+                _carregarVendas();
+              }
+            },
+          ),
           IconButton(
             icon: Icon(Icons.search),
             onPressed: () => _mostrarDialogoBuscaNota(),
