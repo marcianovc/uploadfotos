@@ -439,6 +439,10 @@ class _VendasScreenState extends State<VendasScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   Text(
+                    'Filial: ${venda.filial}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  ),
+                  Text(
                     DateFormat('dd/MM/yyyy').format(venda.dataComp),
                     style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
