@@ -10,6 +10,7 @@ class Venda {
   final int? anexoId;
   final String? descricao;
   final String? arquivo;
+  final int filial;
 
   Venda({
     required this.vendaId,
@@ -23,6 +24,7 @@ class Venda {
     this.anexoId,
     this.descricao,
     this.arquivo,
+    required this.filial,
   });
 
   factory Venda.fromMap(Map<String, dynamic> map) {
@@ -38,6 +40,7 @@ class Venda {
       anexoId: map['ANEXO_ID'],
       descricao: map['DESCRICAO'],
       arquivo: map['ARQUIVO'],
+      filial: map['FILIAL'],
     );
   }
 }

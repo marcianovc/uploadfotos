@@ -80,6 +80,7 @@ class _VendasScreenState extends State<VendasScreen> {
           anexoId: item['ANEXO_ID'] as int?,
           descricao: item['DESCRICAO']?.toString(),
           arquivo: item['ARQUIVO']?.toString(),
+          filial: item['FILIAL'] as int,
         );
       }).toList();
 
@@ -258,6 +259,7 @@ class _VendasScreenState extends State<VendasScreen> {
           anexoId: item['ANEXO_ID'] as int?,
           descricao: item['DESCRICAO']?.toString(),
           arquivo: item['ARQUIVO']?.toString(),
+          filial: item['FILIAL'] as int,
         );
       }).toList();
 
