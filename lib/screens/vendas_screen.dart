@@ -5,6 +5,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uploadfotos/screens/api_config_screen.dart';
+import 'package:uploadfotos/services/auth_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/venda_model.dart';
 import '../services/database_helper.dart';
@@ -23,6 +24,26 @@ class _VendasScreenState extends State<VendasScreen> {
   late DatabaseHelper _dbHelper;
   final _imageService = ImageService();
   String _erroCarregamento = '';
+
+  Future<void> _logout() async {
+    try {
+      setState(() => isLoading = true);
+      final authService = AuthService();
+      await authService.logout();
+      
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarSnackBar('Erro ao fazer logout: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -282,7 +303,6 @@ class _VendasScreenState extends State<VendasScreen> {
   }
 
   void _mostrarDialogoBuscaNota() {
-    final codFilialController = TextEditingController();
     final numNfController = TextEditingController();
 
     showDialog(
@@ -333,6 +353,11 @@ class _VendasScreenState extends State<VendasScreen> {
       appBar: AppBar(
         title: Text('Vendas - Canhotos (${vendas.length})'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Sair',
+          ),
           IconButton(
             icon: Icon(Icons.settings),
             onPressed: () async {

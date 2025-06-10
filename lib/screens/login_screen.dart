@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'api_config_screen.dart';
@@ -17,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _senhaController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
   String _errorMessage = '';
   String _apiConfigStatus = '';
 
@@ -24,6 +26,36 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _checkApiConfig();
+    _loadSavedCredentials();
+    _loginController.addListener(_formatarDocumento);
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedLogin = prefs.getString('savedLogin');
+    final savedPassword = prefs.getString('savedPassword');
+    final rememberMe = prefs.getBool('rememberMe') ?? false;
+
+    if (rememberMe && savedLogin != null && savedPassword != null) {
+      setState(() {
+        _loginController.text = savedLogin;
+        _senhaController.text = savedPassword;
+        _rememberMe = true;
+      });
+    }
+  }
+
+  Future<void> _saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('savedLogin', _loginController.text);
+      await prefs.setString('savedPassword', _senhaController.text);
+      await prefs.setBool('rememberMe', true);
+    } else {
+      await prefs.remove('savedLogin');
+      await prefs.remove('savedPassword');
+      await prefs.setBool('rememberMe', false);
+    }
   }
 
   Future<void> _checkApiConfig() async {
@@ -42,9 +74,63 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _loginController.removeListener(_formatarDocumento);
     _loginController.dispose();
     _senhaController.dispose();
     super.dispose();
+  }
+
+  void _formatarDocumento() {
+    final text = _loginController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    String formattedText = '';
+
+    if (text.length <= 11) { // CPF
+      if (text.length > 3) {
+        formattedText += '${text.substring(0, 3)}.';
+        if (text.length > 6) {
+          formattedText += '${text.substring(3, 6)}.';
+          if (text.length > 9) {
+            formattedText += '${text.substring(6, 9)}-';
+            formattedText += text.substring(9);
+          } else {
+            formattedText += text.substring(6);
+          }
+        } else {
+          formattedText += text.substring(3);
+        }
+      } else {
+        formattedText = text;
+      }
+    } else { // CNPJ
+      if (text.length > 2) {
+        formattedText += '${text.substring(0, 2)}.';
+        if (text.length > 5) {
+          formattedText += '${text.substring(2, 5)}.';
+          if (text.length > 8) {
+            formattedText += '${text.substring(5, 8)}/';
+            if (text.length > 12) {
+              formattedText += '${text.substring(8, 12)}-';
+              formattedText += text.substring(12);
+            } else {
+              formattedText += text.substring(8);
+            }
+          } else {
+            formattedText += text.substring(5);
+          }
+        } else {
+          formattedText += text.substring(2);
+        }
+      } else {
+        formattedText = text;
+      }
+    }
+
+    if (_loginController.text != formattedText) {
+      _loginController.value = _loginController.value.copyWith(
+        text: formattedText,
+        selection: TextSelection.collapsed(offset: formattedText.length),
+      );
+    }
   }
 
   Future<void> _login() async {
@@ -70,6 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final authService = AuthService();
       final login = _loginController.text.trim();
       final senha = _senhaController.text.trim();
+
+      // Salva as credenciais se "Lembrar-me" estiver ativado
+      await _saveCredentials();
 
       final response = await authService.login(login, senha);
 
@@ -149,8 +238,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'CPF/CNPJ',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
+                    hintText: '000.000.000-00 ou 00.000.000/0000-00',
                   ),
                   keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    // Remove todos os caracteres não numéricos antes de validar
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                  ],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor, informe seu CPF/CNPJ';
@@ -194,6 +288,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value ?? false;
+                        });
+                      },
+                    ),
+                    const Text('Lembrar login e senha'),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,

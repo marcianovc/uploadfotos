@@ -44,15 +44,33 @@ class AuthService {
     return prefs.getBool('isLoggedIn') ?? false;
   }
 
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('isLoggedIn');
-    await prefs.remove('userLogin');
-  }
-
   Future<bool> isApiConfigured() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('api_host') != null &&
         prefs.getString('api_port') != null;
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('isLoggedIn');
+    await prefs.remove('userLogin');
+    
+    // Não limpa as credenciais salvas se "Lembrar-me" estiver ativado
+    final rememberMe = prefs.getBool('rememberMe') ?? false;
+    if (!rememberMe) {
+      await prefs.remove('savedLogin');
+      await prefs.remove('savedPassword');
+    }
+  }
+
+  Future<bool> isRememberMeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('rememberMe') ?? false;
+  }
+
+  Future<bool> hasSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('savedLogin') != null && 
+           prefs.getString('savedPassword') != null;
   }
 }
