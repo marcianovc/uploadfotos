@@ -30,7 +30,7 @@ class _VendasScreenState extends State<VendasScreen> {
       setState(() => isLoading = true);
       final authService = AuthService();
       await authService.logout();
-      
+
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');
       }
@@ -250,58 +250,7 @@ class _VendasScreenState extends State<VendasScreen> {
     }
   }
 
-  Future<void> _consultarPorNotaFiscal(int numNf) async {
-    setState(() {
-      isLoading = true;
-      _erroCarregamento = '';
-    });
-
-    try {
-      debugPrint('Iniciando consulta por nota fiscal: $numNf');
-
-      // Adicione este método no seu DatabaseHelper
-      final listaDados = await _dbHelper.consultaNota(numNf: numNf);
-
-      debugPrint('Resultado da consulta por nota: ${listaDados.length} itens');
-      if (listaDados.isNotEmpty) {
-        debugPrint('Primeiro item: ${listaDados.first}');
-      }
-
-      final listaVendas = listaDados.map<Venda>((item) {
-        return Venda(
-          vendaId: item['VENDA_ID'] as int,
-          numNf: item['NUM_NF'].toString(),
-          dataComp: DateTime.parse(item['DTACOMP']),
-          parceiro: item['PARCEIRO'].toString(),
-          razaoSocial: item['RAZAO_SOCIAL'].toString(),
-          nomeVendedor: item['NOME_VENDEDOR'].toString(),
-          totalVenda: double.parse(item['TOTAL_VENDA'].toString()),
-          status: item['STATUS'].toString().trim(),
-          anexoId: item['ANEXO_ID'] as int?,
-          descricao: item['DESCRICAO']?.toString(),
-          arquivo: item['ARQUIVO']?.toString(),
-          filial: item['FILIAL'] as int,
-        );
-      }).toList();
-
-      setState(() {
-        vendas = listaVendas;
-        isLoading = false;
-      });
-
-      if (listaVendas.isEmpty) {
-        _mostrarSnackBar('Nenhuma venda encontrada para a nota fiscal $numNf');
-      }
-    } catch (e) {
-      debugPrint('Erro ao consultar por nota fiscal: $e');
-      setState(() {
-        isLoading = false;
-        _erroCarregamento = 'Erro ao consultar nota fiscal: ${e.toString()}';
-      });
-      _mostrarSnackBar(_erroCarregamento);
-    }
-  }
-
+  /*
   void _mostrarDialogoBuscaNota() {
     final numNfController = TextEditingController();
 
@@ -346,6 +295,106 @@ class _VendasScreenState extends State<VendasScreen> {
       ),
     );
   }
+  */
+
+  void _mostrarDialogoBusca() {
+    final codFilialController = TextEditingController();
+    final numNfController = TextEditingController();
+    final roteiroController = TextEditingController();
+    int tipoBuscaSelecionado = 0; // 0 = Nota Fiscal, 1 = Roteiro
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Consultar'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Radio<int>(
+                      value: 0,
+                      groupValue: tipoBuscaSelecionado,
+                      onChanged: (value) {
+                        setState(() {
+                          tipoBuscaSelecionado = value!;
+                        });
+                      },
+                    ),
+                    const Text('Nota Fiscal'),
+                    Radio<int>(
+                      value: 1,
+                      groupValue: tipoBuscaSelecionado,
+                      onChanged: (value) {
+                        setState(() {
+                          tipoBuscaSelecionado = value!;
+                        });
+                      },
+                    ),
+                    const Text('Roteiro'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (tipoBuscaSelecionado == 0) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: numNfController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Número da Nota Fiscal',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: roteiroController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Número do Roteiro',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (tipoBuscaSelecionado == 0) {
+                    final numNf = int.tryParse(numNfController.text);
+
+                    if (numNf != null) {
+                      Navigator.pop(context);
+                      _consultarPorNotaFiscal(numNf);
+                    } else {
+                      _mostrarSnackBar(
+                        'Preencha ambos os campos corretamente!',
+                      );
+                    }
+                  } else {
+                    final roteiro = int.tryParse(roteiroController.text);
+                    if (roteiro != null) {
+                      Navigator.pop(context);
+                      _consultarPorRoteiro(roteiro);
+                    } else {
+                      _mostrarSnackBar('Informe o número do roteiro!');
+                    }
+                  }
+                },
+                child: const Text('Buscar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +425,8 @@ class _VendasScreenState extends State<VendasScreen> {
           ),
           IconButton(
             icon: Icon(Icons.search),
-            onPressed: () => _mostrarDialogoBuscaNota(),
+            //onPressed: () => _mostrarDialogoBuscaNota(),
+            onPressed: () => _mostrarDialogoBusca(),
           ),
           IconButton(icon: Icon(Icons.refresh), onPressed: _carregarVendas),
         ],
@@ -534,5 +584,108 @@ class _VendasScreenState extends State<VendasScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _consultarPorNotaFiscal(int numNf) async {
+    setState(() {
+      isLoading = true;
+      _erroCarregamento = '';
+    });
+
+    try {
+      debugPrint('Iniciando consulta por nota fiscal: $numNf');
+
+      // Adicione este método no seu DatabaseHelper
+      final listaDados = await _dbHelper.consultaNota(numNf: numNf);
+
+      debugPrint('Resultado da consulta por nota: ${listaDados.length} itens');
+      if (listaDados.isNotEmpty) {
+        debugPrint('Primeiro item: ${listaDados.first}');
+      }
+
+      final listaVendas = listaDados.map<Venda>((item) {
+        return Venda(
+          vendaId: item['VENDA_ID'] as int,
+          numNf: item['NUM_NF'].toString(),
+          dataComp: DateTime.parse(item['DTACOMP']),
+          parceiro: item['PARCEIRO'].toString(),
+          razaoSocial: item['RAZAO_SOCIAL'].toString(),
+          nomeVendedor: item['NOME_VENDEDOR'].toString(),
+          totalVenda: double.parse(item['TOTAL_VENDA'].toString()),
+          status: item['STATUS'].toString().trim(),
+          anexoId: item['ANEXO_ID'] as int?,
+          descricao: item['DESCRICAO']?.toString(),
+          arquivo: item['ARQUIVO']?.toString(),
+          filial: item['FILIAL'] as int,
+        );
+      }).toList();
+
+      setState(() {
+        vendas = listaVendas;
+        isLoading = false;
+      });
+
+      if (listaVendas.isEmpty) {
+        _mostrarSnackBar('Nenhuma venda encontrada para a nota fiscal $numNf');
+      }
+    } catch (e) {
+      debugPrint('Erro ao consultar por nota fiscal: $e');
+      setState(() {
+        isLoading = false;
+        _erroCarregamento = 'Erro ao consultar nota fiscal: ${e.toString()}';
+      });
+      _mostrarSnackBar(_erroCarregamento);
+    }
+  }
+
+  Future<void> _consultarPorRoteiro(int roteiro) async {
+    setState(() {
+      isLoading = true;
+      _erroCarregamento = '';
+    });
+
+    try {
+      debugPrint('Iniciando consulta por roteiro: $roteiro');
+
+      // Implemente aqui a chamada para sua API de roteiro
+      final listaDados = await _dbHelper.consultarPorRoteiro(roteiro: roteiro);
+
+      debugPrint(
+        'Resultado da consulta por roteiro: ${listaDados.length} itens',
+      );
+
+      final listaVendas = listaDados.map<Venda>((item) {
+        return Venda(
+          vendaId: item['VENDA_ID'] as int,
+          numNf: item['NUM_NF'].toString(),
+          dataComp: DateTime.parse(item['DTACOMP']),
+          parceiro: item['PARCEIRO'].toString(),
+          razaoSocial: item['RAZAO_SOCIAL'].toString(),
+          nomeVendedor: item['NOME_VENDEDOR'].toString(),
+          totalVenda: double.parse(item['TOTAL_VENDA'].toString()),
+          status: item['STATUS'].toString().trim(),
+          anexoId: item['ANEXO_ID'] as int?,
+          descricao: item['DESCRICAO']?.toString(),
+          arquivo: item['ARQUIVO']?.toString(),
+          filial: item['FILIAL'] as int,
+        );
+      }).toList();
+
+      setState(() {
+        vendas = listaVendas;
+        isLoading = false;
+      });
+
+      if (listaVendas.isEmpty) {
+        _mostrarSnackBar('Nenhuma venda encontrada para o roteiro $roteiro');
+      }
+    } catch (e) {
+      debugPrint('Erro ao consultar por roteiro: $e');
+      setState(() {
+        isLoading = false;
+        _erroCarregamento = 'Erro ao consultar roteiro: ${e.toString()}';
+      });
+      _mostrarSnackBar(_erroCarregamento);
+    }
   }
 }

@@ -203,4 +203,36 @@ class DatabaseHelper {
       throw Exception('Erro ao acessar anexo: $e');
     }
   }
+
+  Future<List<Map<String, dynamic>>> consultarPorRoteiro({
+    required int roteiro,
+  }) async {
+    try {
+      final url = Uri.parse('$_apiBaseUrl/vendas/roteiro');
+      debugPrint('Enviando requisição para: $url');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'roteiro': roteiro}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        } else {
+          throw Exception('API retornou erro: ${data['error']}');
+        }
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(
+          'Erro na API: ${error['error']} (Código: ${error['error_code']})',
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao consultar por roteiro: $e');
+      throw Exception('Erro ao consultar por roteiro: $e');
+    }
+  }
 }
