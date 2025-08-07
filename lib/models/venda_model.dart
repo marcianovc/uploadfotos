@@ -11,6 +11,7 @@ class Venda {
   final String? descricao;
   final String? arquivo;
   final int filial;
+  final String forma;
 
   Venda({
     required this.vendaId,
@@ -25,6 +26,7 @@ class Venda {
     this.descricao,
     this.arquivo,
     required this.filial,
+    required this.forma,
   });
 
   factory Venda.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class Venda {
       descricao: map['DESCRICAO'],
       arquivo: map['ARQUIVO'],
       filial: map['FILIAL'],
+      forma: map['DSCFORMA'],
     );
   }
 }

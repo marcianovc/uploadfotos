@@ -102,6 +102,7 @@ class _VendasScreenState extends State<VendasScreen> {
           descricao: item['DESCRICAO']?.toString(),
           arquivo: item['ARQUIVO']?.toString(),
           filial: item['FILIAL'] as int,
+          forma: item['DSCFORMA'].toString(),
         );
       }).toList();
 
@@ -543,7 +544,7 @@ class _VendasScreenState extends State<VendasScreen> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Valor: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(venda.totalVenda)}',
+                          'Valor: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(venda.totalVenda)} - Forma: ${venda.forma}',
                           style: TextStyle(fontSize: 12),
                         ),
                       ],
@@ -617,6 +618,7 @@ class _VendasScreenState extends State<VendasScreen> {
           descricao: item['DESCRICAO']?.toString(),
           arquivo: item['ARQUIVO']?.toString(),
           filial: item['FILIAL'] as int,
+          forma: item['DSCFORMA'].toString(),
         );
       }).toList();
 
@@ -668,6 +670,7 @@ class _VendasScreenState extends State<VendasScreen> {
           descricao: item['DESCRICAO']?.toString(),
           arquivo: item['ARQUIVO']?.toString(),
           filial: item['FILIAL'] as int,
+          forma: item['DSCFORMA'].toString(),
         );
       }).toList();
 
