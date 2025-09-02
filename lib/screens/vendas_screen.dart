@@ -24,6 +24,8 @@ class _VendasScreenState extends State<VendasScreen> {
   late DatabaseHelper _dbHelper;
   final _imageService = ImageService();
   String _erroCarregamento = '';
+  int _codFilialTrabalho = 0;
+  int _codVendedor = 0;
 
   Future<void> _logout() async {
     try {
@@ -49,7 +51,27 @@ class _VendasScreenState extends State<VendasScreen> {
   void initState() {
     super.initState();
     _dbHelper = DatabaseHelper();
-    _carregarVendas();
+    _carregarDadosUsuario();
+  }
+
+  Future<void> _carregarDadosUsuario() async {
+    try {
+      final authService = AuthService();
+      _codFilialTrabalho = await authService.getCodFilialTrabalho();
+      _codVendedor = await authService.getCodVendedor();
+
+      debugPrint('Filial de trabalho: $_codFilialTrabalho');
+      debugPrint('Código do vendedor: $_codVendedor');
+
+      // Após carregar os dados do usuário, carrega as vendas
+      _carregarVendas();
+    } catch (e) {
+      debugPrint('Erro ao carregar dados do usuário: $e');
+      setState(() {
+        isLoading = false;
+        _erroCarregamento = 'Erro ao carregar dados do usuário';
+      });
+    }
   }
 
   Future<void> _carregarVendas() async {
@@ -60,6 +82,7 @@ class _VendasScreenState extends State<VendasScreen> {
 
     try {
       debugPrint('Iniciando consulta de vendas...');
+      debugPrint('Filial: $_codFilialTrabalho, Vendedor: $_codVendedor');
 
       DateTime now = DateTime.now();
 
@@ -74,8 +97,8 @@ class _VendasScreenState extends State<VendasScreen> {
 
       // A função agora retorna diretamente a lista de dados (campo 'data' da API)
       final listaDados = await _dbHelper.consultarVendasCanhotos(
-        codFilial: 100,
-        codVendedor: 75208,
+        codFilial: _codFilialTrabalho,
+        codVendedor: _codVendedor,
         dataInicio: DateFormat('dd.MM.yyyy').format(firstDayOfMonth),
         dataFim: DateFormat('dd.MM.yyyy').format(lastDayOfMonth),
         filtroCanhotos: 'Todas',
@@ -251,55 +274,7 @@ class _VendasScreenState extends State<VendasScreen> {
     }
   }
 
-  /*
-  void _mostrarDialogoBuscaNota() {
-    final numNfController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Consultar Nota Fiscal'),
-        content: Column(
-          mainAxisSize:
-              MainAxisSize.min, // Evita que o Column ocupe todo o espaço
-          children: [
-            const SizedBox(height: 16), // Espaçamento entre os campos
-            TextField(
-              controller: numNfController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Número da Nota Fiscal',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final numNf = int.tryParse(numNfController.text);
-
-              if (numNf != null) {
-                Navigator.pop(context);
-                _consultarPorNotaFiscal(numNf); // Passa ambos os valores
-              } else {
-                _mostrarSnackBar('Preencha ambos os campos corretamente!');
-              }
-            },
-            child: const Text('Buscar'),
-          ),
-        ],
-      ),
-    );
-  }
-  */
-
   void _mostrarDialogoBusca() {
-    final codFilialController = TextEditingController();
     final numNfController = TextEditingController();
     final roteiroController = TextEditingController();
     int tipoBuscaSelecionado = 0; // 0 = Nota Fiscal, 1 = Roteiro
@@ -424,11 +399,11 @@ class _VendasScreenState extends State<VendasScreen> {
               }
             },
           ),
-          IconButton(
-            icon: Icon(Icons.search),
-            //onPressed: () => _mostrarDialogoBuscaNota(),
-            onPressed: () => _mostrarDialogoBusca(),
-          ),
+          if (_codVendedor == 0)
+            IconButton(
+              icon: Icon(Icons.search),
+              onPressed: () => _mostrarDialogoBusca(),
+            ),
           IconButton(icon: Icon(Icons.refresh), onPressed: _carregarVendas),
         ],
       ),

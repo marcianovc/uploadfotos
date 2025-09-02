@@ -54,7 +54,9 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('isLoggedIn');
     await prefs.remove('userLogin');
-    
+    await prefs.remove('codFilialTrabalho');
+    await prefs.remove('codVendedor');
+
     // Não limpa as credenciais salvas se "Lembrar-me" estiver ativado
     final rememberMe = prefs.getBool('rememberMe') ?? false;
     if (!rememberMe) {
@@ -70,7 +72,30 @@ class AuthService {
 
   Future<bool> hasSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('savedLogin') != null && 
-           prefs.getString('savedPassword') != null;
+    return prefs.getString('savedLogin') != null &&
+        prefs.getString('savedPassword') != null;
+  }
+
+  Future<int> getCodFilialTrabalho() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('codFilialTrabalho') ?? 0;
+  }
+
+  Future<int> getCodVendedor() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('codVendedor') ?? 0;
+  }
+
+  Future<void> saveUserData(Map<String, dynamic> userData) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userData['codfilial_trabalho'] != null) {
+      await prefs.setInt(
+        'codFilialTrabalho',
+        userData['codfilial_trabalho'] as int,
+      );
+    }
+    if (userData['codvendedor'] != null) {
+      await prefs.setInt('codVendedor', userData['codvendedor'] as int);
+    }
   }
 }

@@ -84,7 +84,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final text = _loginController.text.replaceAll(RegExp(r'[^0-9]'), '');
     String formattedText = '';
 
-    if (text.length <= 11) { // CPF
+    if (text.length <= 11) {
+      // CPF
       if (text.length > 3) {
         formattedText += '${text.substring(0, 3)}.';
         if (text.length > 6) {
@@ -101,7 +102,8 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         formattedText = text;
       }
-    } else { // CNPJ
+    } else {
+      // CNPJ
       if (text.length > 2) {
         formattedText += '${text.substring(0, 2)}.';
         if (text.length > 5) {
@@ -166,6 +168,10 @@ class _LoginScreenState extends State<LoginScreen> {
         // Salva o status de login
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('userLogin', login);
+
+        if (response['user_data'] != null) {
+          await authService.saveUserData(response['user_data']);
+        }
 
         // Navega para a tela principal
         if (mounted) {
