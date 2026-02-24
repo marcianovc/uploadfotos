@@ -39,7 +39,9 @@ class DatabaseHelper {
                 WHEN afr.faturas_receber_id IS NOT NULL THEN 'Canhoto Boleto Assinado'
                 WHEN av.anexo_id IS NOT NULL THEN 'Canhoto Nota Assinado'
               END AS status,
-              a.anexo_id, a.descricao, a.arquivo
+              a.anexo_id,
+              CASE WHEN a.descricao IS NULL THEN ' ' ELSE a.descricao END AS descricao,
+              a.arquivo, v.codfilial as filial, fpr.dscforma
             FROM vendas v
             LEFT JOIN anexos_vendas av ON av.venda_id = v.venda_id
             LEFT JOIN faturas_receber fr ON fr.venda_id = v.venda_id
@@ -48,6 +50,7 @@ class DatabaseHelper {
             LEFT JOIN anexos a ON a.anexo_id = COALESCE(av.anexo_id, afr.anexo_id)
             LEFT JOIN parceiros pa ON pa.parceiro = v.parceiro
             LEFT JOIN parceiros pv ON pv.parceiro = v.vendedor
+            LEFT JOIN formas_pagar_receber fpr on fpr.forma = v.forma
             WHERE v.idn_cancelada = 'N'
               AND v.codoper IN (110,100)
               AND (v.codfilial = ?)
@@ -85,14 +88,19 @@ class DatabaseHelper {
     }
   }
 
-  Future<void> atualizarAnexo(int vendaId, String caminhoArquivo) async {
+  Future<void> atualizarAnexo(
+    int vendaId,
+    String caminhoArquivo,
+    String descricao,
+  ) async {
     try {
       final imageService = ImageService();
       final uploadResult = await imageService.uploadFoto(
         filePath: caminhoArquivo,
         vendaId: vendaId,
         apiBaseUrl: _apiBaseUrl,
-        descricao: 'Canhoto assinado',
+        //descricao: 'Canhoto assinado',
+        descricao: descricao, // Agora usa a descrição fornecida
       );
 
       if (!uploadResult['success']) {

@@ -144,12 +144,15 @@ class _VendasScreenState extends State<VendasScreen> {
   }
 
   Future<void> _anexarFoto(Venda venda) async {
+    final descricao = await _mostrarDialogoDescricao();
+    if (descricao == null) return; // Usuário cancelou
+
     final pickedFile = await _imageService.capturarFoto();
 
     if (pickedFile != null) {
       try {
         setState(() => isLoading = true);
-        await _dbHelper.atualizarAnexo(venda.vendaId, pickedFile);
+        await _dbHelper.atualizarAnexo(venda.vendaId, pickedFile, descricao);
         await _carregarVendas();
         _mostrarSnackBar('Foto anexada com sucesso!');
       } catch (e) {
@@ -370,6 +373,42 @@ class _VendasScreenState extends State<VendasScreen> {
         },
       ),
     );
+  }
+
+  Future<String?> _mostrarDialogoDescricao() async {
+    final TextEditingController descricaoController = TextEditingController();
+    String? resultado;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Descrição da Foto'),
+        content: TextField(
+          controller: descricaoController,
+          decoration: const InputDecoration(
+            hintText: 'Digite uma descrição para a foto...',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              resultado = descricaoController.text.trim();
+              Navigator.pop(context);
+            },
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+
+    return resultado;
   }
 
   @override
