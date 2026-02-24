@@ -168,7 +168,108 @@ class _VendasScreenState extends State<VendasScreen> {
     ).showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
-  void _visualizarAnexo(int? anexoId, String? nomeArquivo) async {
+  void _visualizarAnexo(
+    int? anexoId,
+    String? nomeArquivo, {
+    String? descricao,
+  }) async {
+    if (anexoId == null || nomeArquivo == null) {
+      _mostrarSnackBar('Nenhum anexo disponível para visualização');
+      return;
+    }
+
+    try {
+      setState(() => isLoading = true);
+
+      final isImagem =
+          nomeArquivo.toLowerCase().endsWith('.jpg') ||
+          nomeArquivo.toLowerCase().endsWith('.jpeg') ||
+          nomeArquivo.toLowerCase().endsWith('.png');
+
+      if (isImagem) {
+        final bytes = await _dbHelper.visualizarAnexo(anexoId: anexoId);
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Canhoto Digital'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (descricao != null && descricao.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      descricao,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                InteractiveViewer(
+                  child: Image.memory(
+                    bytes,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Text('Não foi possível carregar a imagem');
+                    },
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Fechar'),
+              ),
+              TextButton(
+                onPressed: () => _downloadAnexo(anexoId, nomeArquivo),
+                child: Text('Download'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Anexo Digital'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (descricao != null && descricao.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      descricao,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                Text('Deseja fazer download do arquivo $nomeArquivo?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _downloadAnexo(anexoId, nomeArquivo);
+                },
+                child: Text('Download'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao visualizar anexo: $e');
+      _mostrarSnackBar('Erro ao visualizar anexo: ${e.toString()}');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  void _old_visualizarAnexo(int? anexoId, String? nomeArquivo) async {
     if (anexoId == null || nomeArquivo == null) {
       _mostrarSnackBar('Nenhum anexo disponível para visualização');
       return;
@@ -590,8 +691,11 @@ class _VendasScreenState extends State<VendasScreen> {
                   alignment: Alignment.centerRight,
                   child: IconButton(
                     icon: Icon(Icons.photo_camera, color: Colors.blue),
-                    onPressed: () =>
-                        _visualizarAnexo(venda.anexoId, venda.arquivo),
+                    onPressed: () => _visualizarAnexo(
+                      venda.anexoId,
+                      venda.arquivo,
+                      descricao: venda.descricao,
+                    ),
                   ),
                 ),
             ],
