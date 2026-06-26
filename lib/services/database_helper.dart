@@ -26,7 +26,11 @@ class DatabaseHelper {
     try {
       final response = await http.post(
         Uri.parse('$_apiBaseUrl/execute'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key':
+              'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7',
+        },
         body: json.encode({
           'sql': '''
             SELECT DISTINCT
@@ -129,7 +133,11 @@ class DatabaseHelper {
 
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key':
+              'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7',
+        },
         body: json.encode({
           'codfilial': codFilial,
           'vendedor': codVendedor,
@@ -165,7 +173,11 @@ class DatabaseHelper {
 
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key':
+              'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7',
+        },
         body: json.encode({'numnf': numNf}),
       );
 
@@ -198,7 +210,13 @@ class DatabaseHelper {
       );
       debugPrint('Solicitando anexo: $url');
 
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {
+          'X-API-Key':
+              'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7',
+        },
+      );
 
       if (response.statusCode == 200) {
         return response.bodyBytes;
@@ -223,7 +241,11 @@ class DatabaseHelper {
 
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key':
+              'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7',
+        },
         body: json.encode({'roteiro': roteiro}),
       );
 

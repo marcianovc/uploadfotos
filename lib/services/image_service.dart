@@ -36,6 +36,9 @@ class ImageService {
       final uri = Uri.parse('$apiBaseUrl/anexos/upload');
       final request = http.MultipartRequest('POST', uri);
 
+      request.headers['X-API-Key'] =
+          'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7';
+
       // Adiciona o arquivo
       request.files.add(
         await http.MultipartFile.fromPath(

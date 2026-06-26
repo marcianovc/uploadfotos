@@ -15,7 +15,11 @@ class AuthService {
       final apiBaseUrl = await getApiBaseUrl();
       final response = await http.post(
         Uri.parse('$apiBaseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key':
+              'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7',
+        },
         body: json.encode({'login': login, 'senha': senha}),
       );
 
