@@ -46,8 +46,10 @@ class DatabaseHelper {
             LEFT JOIN anexos_vendas av ON av.venda_id = v.venda_id
             LEFT JOIN faturas_receber fr ON fr.venda_id = v.venda_id
             LEFT JOIN boletos_faturas bf ON bf.faturas_receber_id = fr.faturas_receber_id
+            LEFT JOIN notas_emitidas ne ON ne.num_nota = v.num_nf
             LEFT JOIN anexos_faturas_receber afr ON afr.faturas_receber_id = fr.faturas_receber_id
-            LEFT JOIN anexos a ON a.anexo_id = COALESCE(av.anexo_id, afr.anexo_id)
+            LEFT JOIN anexos a ON a.anexo_id = COALESCE(ane.anexo_id, afr.anexo_id, av.anexo_id)
+            LEFT JOIN anexos_notas_emitidas ane ON ane.nota_id = ne.nota_id
             LEFT JOIN parceiros pa ON pa.parceiro = v.parceiro
             LEFT JOIN parceiros pv ON pv.parceiro = v.vendedor
             LEFT JOIN formas_pagar_receber fpr on fpr.forma = v.forma
