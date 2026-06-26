@@ -6,8 +6,57 @@ import os
 from werkzeug.utils import secure_filename
 import uuid
 import hashlib
+import logging
+from logging.handlers import RotatingFileHandler
+import json
+from functools import wraps
 
 app = Flask(__name__)
+
+# ==========================================
+# CONFIGURAÇÃO DE LOGS (Auditoria com Payload)
+# ==========================================
+# 1. Adicionamos o campo %(payload)s no formato da mensagem
+log_formatter = logging.Formatter('%(asctime)s - IP: %(client_ip)s - Método: %(method)s - Rota: %(path)s - Status: %(status)s - Dados: %(payload)s')
+
+log_handler = RotatingFileHandler('api_auditoria.log', maxBytes=5 * 1024 * 1024, backupCount=3)
+log_handler.setFormatter(log_formatter)
+
+api_logger = logging.getLogger('api_logger')
+api_logger.setLevel(logging.INFO)
+api_logger.addHandler(log_handler)
+
+@app.after_request
+def log_request_info(response):
+    payload_str = "{}"
+    
+    # 2. IGNORA rotas de login (para não logar senhas) e rotas de upload (para não logar imagens)
+    if '/auth/login' not in request.path and '/upload' not in request.path:
+        # Tenta pegar os dados se forem JSON (que é o que o Flutter envia)
+        if request.is_json:
+            try:
+                # Pega o JSON de forma segura
+                dados = request.get_json(silent=True)
+                if dados:
+                    # Converte de volta para string, limitando a 500 caracteres para não explodir o log
+                    payload_str = str(dados)[:500] 
+            except:
+                payload_str = "Erro ao ler JSON"
+
+    # 3. Adiciona o payload aos argumentos do log
+    extra_args = {
+        'client_ip': request.remote_addr,
+        'method': request.method,
+        'path': request.path,
+        'status': response.status_code,
+        'payload': payload_str
+    }
+    
+    # Grava no arquivo
+    api_logger.info('Requisição processada', extra=extra_args)
+    
+    return response
+# ==========================================
 
 # Defina uma chave forte e complexa. 
 # Dica de segurança: em produção, o ideal é ler isso de uma variável de ambiente usando os.environ.get('MINHA_API_KEY') 
@@ -246,6 +295,7 @@ def get_db_connection():
         charset=DB_CONFIG['charset']
     )
 
+'''
 @app.route('/execute', methods=['POST'])
 @require_apikey
 def execute_query():
@@ -354,6 +404,7 @@ def execute_query():
             conn.close()
         except:
             pass
+'''
 
 @app.route('/anexos/upload', methods=['POST'])
 @require_apikey
