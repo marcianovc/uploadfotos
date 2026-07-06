@@ -476,7 +476,7 @@ class _VendasScreenState extends State<VendasScreen> {
     );
   }
 
-  Future<String?> _mostrarDialogoDescricao() async {
+  Future<String?> old_mostrarDialogoDescricao() async {
     final TextEditingController descricaoController = TextEditingController();
     String? resultado;
 
@@ -506,6 +506,100 @@ class _VendasScreenState extends State<VendasScreen> {
             child: const Text('Continuar'),
           ),
         ],
+      ),
+    );
+
+    return resultado;
+  }
+
+  Future<String?> _mostrarDialogoDescricao() async {
+    final TextEditingController descricaoController = TextEditingController();
+    String tipoSelecionado = 'CANHOTO'; // Valor padrão inicial
+    String? resultado;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Detalhes do Anexo'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tipo de anexo:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                // Caixa de Seleção (Dropdown)
+                DropdownButtonFormField<String>(
+                  value: tipoSelecionado,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'CANHOTO', child: Text('CANHOTO')),
+                    DropdownMenuItem(
+                      value: 'DEVOLUÇÃO',
+                      child: Text('DEVOLUÇÃO'),
+                    ),
+                  ],
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        tipoSelecionado = newValue;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Descrição (Opcional):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                // Campo de texto para a descrição
+                TextField(
+                  controller: descricaoController,
+                  decoration: const InputDecoration(
+                    hintText: 'Digite uma descrição para a foto...',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  autofocus:
+                      false, // Falso para não sobrepor o dropdown com o teclado imediatamente
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final textoDigitado = descricaoController.text.trim();
+
+                  // Se o usuário digitou algo, junta o tipo + texto
+                  if (textoDigitado.isNotEmpty) {
+                    resultado = '$tipoSelecionado - $textoDigitado';
+                  } else {
+                    // Se não digitou, envia apenas o tipo selecionado
+                    resultado = tipoSelecionado;
+                  }
+
+                  Navigator.pop(context);
+                },
+                child: const Text('Continuar'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
