@@ -10,14 +10,103 @@ import logging
 from logging.handlers import RotatingFileHandler
 import json
 from functools import wraps
+import time
 
 app = Flask(__name__)
+
+# ==========================================
+# FIREWALL CASEIRO COM PERSISTÊNCIA (WINDOWS)
+# ==========================================
+ARQUIVO_BLOQUEIOS = 'ips_bloqueados.json'
+
+def carregar_bloqueios():
+    """Lê o arquivo de IPs bloqueados ao iniciar o script"""
+    if os.path.exists(ARQUIVO_BLOQUEIOS):
+        try:
+            with open(ARQUIVO_BLOQUEIOS, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def salvar_bloqueios(dados):
+    """Salva a lista atualizada de bloqueios no arquivo"""
+    try:
+        with open(ARQUIVO_BLOQUEIOS, 'w') as f:
+            json.dump(dados, f)
+    except Exception as e:
+        print(f"Erro ao salvar arquivo de bloqueios: {e}")
+
+# Dicionário para rastrear tentativas rápidas na memória: { 'IP': [tempo1, tempo2] }
+tentativas_suspeitas = {}
+
+# Carrega os bloqueios anteriores (se existirem)
+ips_bloqueados = carregar_bloqueios()
+
+# NOVO: Dicionário para controlar requisições simultâneas (rajadas)
+controle_rajadas = {}
+
+@app.before_request
+def verificar_bloqueios():
+    ip = request.remote_addr
+
+    if ip and ip.startswith('192.168.100.'):
+        return
+    
+    agora = time.time()
+    
+    # ==========================================
+    # 1. BLOQUEIO POR HORÁRIO (20h às 07h)
+    # ==========================================
+    hora_atual = datetime.now().hour
+    if hora_atual >= 20 or hora_atual < 7:
+        abort(403, description="Fora do horário de operação (07:00 às 20:00).")
+
+    # ==========================================
+    # 2. CORTA-GIRO: PROTEÇÃO CONTRA ATAQUES EM RAJADA (BURST)
+    # ==========================================
+    if ip not in controle_rajadas:
+        controle_rajadas[ip] = []
+    
+    # Registra a tentativa e limpa as que têm mais de 1 segundo
+    controle_rajadas[ip].append(agora)
+    controle_rajadas[ip] = [t for t in controle_rajadas[ip] if agora - t < 1.0]
+    
+    # Se o IP fez mais de 5 requisições no espaço de 1 SEGUNDO, é um bot disparando metralhadora
+    if len(controle_rajadas[ip]) > 5:
+        ips_bloqueados_agora = carregar_bloqueios()
+        if ip not in ips_bloqueados_agora:
+            ips_bloqueados_agora[ip] = agora + 2592000  # Bloqueia por 30 dias na hora!
+            salvar_bloqueios(ips_bloqueados_agora)
+            global ips_bloqueados
+            ips_bloqueados = ips_bloqueados_agora
+            print(f"ALERTA CRÍTICO: IP {ip} tentou ataque em rajada e foi banido por 30 dias.")
+        abort(403, description="Bloqueado por excesso de conexões simultâneas (Flood).")
+    
+    # ==========================================
+    # 3. VERIFICA SE O IP JÁ ESTÁ NA LISTA NEGRA
+    # ==========================================
+    # Lemos o arquivo em tempo real para o caso de você ter editado na mão
+    ips_bloqueados_agora = carregar_bloqueios() 
+    
+    # Verifica se o IP está na lista de bloqueados
+    if ip in ips_bloqueados_agora:
+            tempo_desbloqueio = ips_bloqueados_agora[ip]
+            
+            if agora < tempo_desbloqueio:
+                abort(403, description="Acesso bloqueado por tentativas suspeitas.")
+            else:
+                del ips_bloqueados_agora[ip]
+                salvar_bloqueios(ips_bloqueados_agora)
+                ips_bloqueados = ips_bloqueados_agora
+                if ip in tentativas_suspeitas:
+                    del tentativas_suspeitas[ip]
 
 # ==========================================
 # CONFIGURAÇÃO DE LOGS (Auditoria com Payload)
 # ==========================================
 # 1. Adicionamos o campo %(payload)s no formato da mensagem
-log_formatter = logging.Formatter('%(asctime)s - IP: %(client_ip)s - Método: %(method)s - Rota: %(path)s - Status: %(status)s - Dados: %(payload)s')
+log_formatter = logging.Formatter('%(asctime)s - IP: %(client_ip)s - Método: %(method)s - Rota: %(path)s - Endpoint: %(endpoint)s - Status: %(status)s - Dados: %(payload)s')
 
 log_handler = RotatingFileHandler('api_auditoria.log', maxBytes=5 * 1024 * 1024, backupCount=3)
 log_handler.setFormatter(log_formatter)
@@ -26,6 +115,50 @@ api_logger = logging.getLogger('api_logger')
 api_logger.setLevel(logging.INFO)
 api_logger.addHandler(log_handler)
 
+@app.after_request
+def finaliza_requisicao(response):
+    # 1. PARTE DO FIREWALL (Monitora as tentativas e salva o IP se passar do limite)
+    ip = request.remote_addr
+
+    if not (ip and ip.startswith('192.168.100.')):
+        if response.status_code in [404, 401, 403, 400, 505]:
+            agora = time.time()
+            if ip not in tentativas_suspeitas:
+                tentativas_suspeitas[ip] = []
+            tentativas_suspeitas[ip].append(agora)
+            tentativas_suspeitas[ip] = [t for t in tentativas_suspeitas[ip] if agora - t < 60]
+            
+            if len(tentativas_suspeitas[ip]) >= 5 and ip not in ips_bloqueados:
+                #ips_bloqueados[ip] = agora + (1 * 86400) #bloqueio de 1 dia
+                ips_bloqueados[ip] = agora + (30 * 86400)   #bloqueio de 30 dias
+                salvar_bloqueios(ips_bloqueados)
+                print(f"ALERTA: IP {ip} bloqueado e salvo.")
+
+    # 2. PARTE DO LOG (Grava a requisição no arquivo api_auditoria.log)
+    payload_str = "{}"
+    if '/auth/login' not in request.path and '/upload' not in request.path:
+        if request.is_json:
+            try:
+                dados = request.get_json(silent=True)
+                if dados:
+                    payload_str = str(dados)[:500] 
+            except:
+                pass
+
+    extra_args = {
+        'client_ip': ip,
+        'method': request.method,
+        'path': request.path,
+        'endpoint': request.endpoint,
+        'status': response.status_code,
+        'payload': payload_str
+    }
+    api_logger.info('Requisição processada', extra=extra_args)
+    
+    # Retorna a resposta final para o cliente
+    return response
+
+'''
 @app.after_request
 def log_request_info(response):
     payload_str = "{}"
@@ -48,6 +181,7 @@ def log_request_info(response):
         'client_ip': request.remote_addr,
         'method': request.method,
         'path': request.path,
+        'endpoint': request.endpoint,
         'status': response.status_code,
         'payload': payload_str
     }
@@ -56,7 +190,7 @@ def log_request_info(response):
     api_logger.info('Requisição processada', extra=extra_args)
     
     return response
-# ==========================================
+'''
 
 # Defina uma chave forte e complexa. 
 # Dica de segurança: em produção, o ideal é ler isso de uma variável de ambiente usando os.environ.get('MINHA_API_KEY') 
@@ -559,7 +693,7 @@ def autenticar_usuario():
         
         cursor.execute("""
             SELECT p.ativo, p.cpf, p.cnpj, p.senha, p.codfilial_cadastro AS codfilial_trabalho ,
-            CASE WHEN p.parceiro IN (75277, 13290, 18335, 32199, 14336, 19876, 75208) THEN 0 ELSE p.parceiro END AS codvendedor
+            CASE WHEN p.parceiro IN (75277, 13290, 18335, 32199, 14336, 19876, 75208, 1000974) THEN 0 ELSE p.parceiro END AS codvendedor
             FROM parceiros p
             WHERE (p.cpf = ? OR p.cnpj = ?)
               AND p.senha IS NOT NULL
@@ -689,7 +823,7 @@ def consulta_vendas_canhotos():
         LEFT JOIN parceiros pv ON pv.parceiro = v.vendedor
         LEFT JOIN formas_pagar_receber fpr on fpr.forma = v.forma
         WHERE v.idn_cancelada = 'N'
-            AND v.codoper IN (110,100,137,138)
+            AND v.codoper IN (110,100,137,138,430)
             AND (v.codfilial = ?)
             AND v.num_nf IS NOT NULL
             --AND (afr.anexo_id IS NOT NULL or ane.anexo_id IS NOT NULL)
@@ -823,7 +957,7 @@ def consulta_nota():
         LEFT JOIN parceiros pv ON pv.parceiro = v.vendedor
         LEFT JOIN formas_pagar_receber fpr on fpr.forma = v.forma
         WHERE v.idn_cancelada = 'N'
-            AND v.codoper IN (110,100,137,138)
+            AND v.codoper IN (110,100,137,138,430)
             --AND (v.codfilial = ?)
             AND v.num_nf IS NOT NULL
             --AND (afr.anexo_id IS NOT NULL or ane.anexo_id IS NOT NULL)
@@ -883,6 +1017,100 @@ def consulta_nota():
             conn.close()
         except:
             pass
+
+@app.route('/vendas/nota/itens', methods=['POST'])
+@require_apikey
+def consulta_itens_nota():
+    try:
+        # force=True garante que o Flask leia o JSON mesmo se o header Content-Type estiver faltando
+        data = request.get_json(silent=True, force=True)
+        print(f"\n[DEBUG] Recebendo requisição de itens: {data}")
+        
+        if not data or 'codfilial' not in data or 'num_nota' not in data:
+            print("[ERRO] JSON inválido ou parâmetros ausentes.")
+            return jsonify({
+                'success': False,
+                'error': 'Os parâmetros codfilial e num_nota são obrigatórios',
+                'error_code': 'MISSING_PARAM'
+            }), 400
+
+        # Força conversão para inteiro para evitar problemas de tipos no SQL
+        num_nota = int(data['num_nota'])
+        codfilial = int(data['codfilial'])
+
+        sql = """
+        SELECT
+            nei.item, 
+            nei.codproduto, 
+            nei.descricao_item, 
+            nei.qtd, 
+            nei.preco, 
+            nei.valor, 
+            pl.lote, 
+            pl.data_fabricacao, 
+            pl.data_vencimento
+        FROM notas_emitidas ne
+        INNER JOIN notas_emitidas_itens nei ON nei.nota_id = ne.nota_id
+        LEFT JOIN produtos_lotes pl ON nei.lote_id = pl.lote_id
+        WHERE ne.num_nota = ?
+          AND ne.codfilial = ?
+        ORDER BY nei.item ASC
+        """
+
+        params = [num_nota, codfilial]
+        print(f"[DEBUG] Executando SQL com num_nota: {num_nota} e codfilial: {codfilial}")
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+
+        # Processar resultados
+        columns = [desc[0] for desc in cursor.description]
+        results = []
+        for row in cursor.fetchall():
+            row_data = {}
+            for i, col in enumerate(columns):
+                value = row[i]
+                if isinstance(value, (bytes, bytearray)):
+                    value = value.hex()
+                elif isinstance(value, (date, datetime)):
+                    value = value.isoformat()
+                row_data[col] = value
+            results.append(row_data)
+
+        print(f"[DEBUG] Sucesso! {len(results)} itens encontrados.")
+
+        return jsonify({
+            'success': True,
+            'data': results,
+            'count': len(results)
+        })
+
+    except fdb.Error as e:
+        # === AQUI ESTÁ O SEGREDO ===
+        # Isso vai imprimir no console exatamente a coluna ou sintaxe que o Firebird não gostou
+        mensagem_erro = str(e)
+        print(f"\n==============================")
+        print(f"ERRO DO FIREBIRD: {mensagem_erro}")
+        print(f"==============================\n")
+        return jsonify({
+            'success': False,
+            'error': f"Erro SQL: {mensagem_erro}",
+            'error_code': 'FIREBIRD_ERROR'
+        }), 400
+        
+    except Exception as e:
+        print(f"\n[ERRO INTERNO NO PYTHON]: {str(e)}\n")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'error_code': 'INTERNAL_ERROR'
+        }), 500
+    finally:
+        try: cursor.close()
+        except: pass
+        try: conn.close()
+        except: pass
 
 @app.route('/vendas/nnota', methods=['POST'])
 @require_apikey
@@ -944,7 +1172,7 @@ def consulta_vendas_nota():
         LEFT JOIN parceiros pv ON pv.parceiro = v.vendedor
         LEFT JOIN formas_pagar_receber fpr on fpr.forma = v.forma
         WHERE v.idn_cancelada = 'N'
-            AND v.codoper IN (110,100,137,138)
+            AND v.codoper IN (110,100,137,138,430)
             AND v.num_nf IS NOT NULL
             AND v.num_nf = ?
         ORDER BY v.num_nf, v.vendedor, anexo_id ASC

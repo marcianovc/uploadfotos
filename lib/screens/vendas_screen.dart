@@ -617,88 +617,97 @@ class _VendasScreenState extends State<VendasScreen> {
                 ],
               )
             : null,
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'NF: ${venda.numNf}',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Text(
-                    'Filial: ${venda.filial}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                  ),
-                  Text(
-                    DateFormat('dd/MM/yyyy').format(venda.dataComp),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Text(
-                venda.razaoSocial,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Vendedor: ${venda.nomeVendedor}',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Valor: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(venda.totalVenda)} - Forma: ${venda.forma}',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: venda.status == 'Sem Canhoto Assinado'
-                          ? Colors.red[100]
-                          : Colors.green[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      venda.status,
+        child: InkWell(
+          onTap: () => _mostrarItensNota(venda),
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'NF: ${venda.numNf}',
                       style: TextStyle(
-                        color: venda.status == 'Sem Canhoto Assinado'
-                            ? Colors.red[800]
-                            : Colors.green[800],
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      'Filial: ${venda.filial}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    ),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(venda.dataComp),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  venda.razaoSocial,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Vendedor: ${venda.nomeVendedor}',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Valor: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(venda.totalVenda)} - Forma: ${venda.forma}',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: venda.status == 'Sem Canhoto Assinado'
+                            ? Colors.red[100]
+                            : Colors.green[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        venda.status,
+                        style: TextStyle(
+                          color: venda.status == 'Sem Canhoto Assinado'
+                              ? Colors.red[800]
+                              : Colors.green[800],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (venda.arquivo != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: Icon(Icons.photo_camera, color: Colors.blue),
+                      onPressed: () => _visualizarAnexo(
+                        venda.anexoId,
+                        venda.arquivo,
+                        descricao: venda.descricao,
                       ),
                     ),
                   ),
-                ],
-              ),
-              if (venda.arquivo != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    icon: Icon(Icons.photo_camera, color: Colors.blue),
-                    onPressed: () => _visualizarAnexo(
-                      venda.anexoId,
-                      venda.arquivo,
-                      descricao: venda.descricao,
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -808,5 +817,108 @@ class _VendasScreenState extends State<VendasScreen> {
       });
       _mostrarSnackBar(_erroCarregamento);
     }
+  }
+
+  Future<void> _mostrarItensNota(Venda venda) async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Itens da NF: ${venda.numNf}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: FutureBuilder<List<dynamic>>(
+                    future: _dbHelper.consultarItensNota(
+                      numNota: int.parse(venda.numNf),
+                      codFilial: _codFilialTrabalho,
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Erro: ${snapshot.error}'));
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Center(
+                          child: Text('Nenhum item encontrado.'),
+                        );
+                      }
+
+                      final itens = snapshot.data!;
+
+                      return ListView.builder(
+                        controller: scrollController,
+                        itemCount: itens.length,
+                        itemBuilder: (context, index) {
+                          final item = itens[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blue.shade100,
+                              child: Text(
+                                item['ITEM']?.toString() ?? '',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            title: Text(
+                              item['DESCRICAO_ITEM']?.toString() ??
+                                  'Sem descrição',
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Qtd: ${item['QTD']} | Vlr. Unit: R\$ ${item['PRECO']}',
+                                ),
+                                if (item['LOTE'] != null)
+                                  Text(
+                                    'Lote: ${item['LOTE']} (Venc: ${item['DATA_VENCIMENTO']})',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            trailing: Text(
+                              'R\$ ${item['VALOR']}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

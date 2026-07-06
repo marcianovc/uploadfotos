@@ -200,6 +200,57 @@ class DatabaseHelper {
     }
   }
 
+  /// Consulta os itens de uma nota específica no backend
+  Future<List<dynamic>> consultarItensNota({
+    required int numNota,
+    required int codFilial,
+  }) async {
+    try {
+      final String apiKey =
+          'OGQX3A1t8N3nV8LlTP8DVskpzUu1lCVKWrmShj27cs3C1hkxFuJGcgQM8iqbdrf7';
+
+      final url = Uri.parse('$_apiBaseUrl/vendas/nota/itens');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-API-Key': apiKey, // Cabeçalho exigido pelo seu backend Python
+        },
+        body: jsonEncode({'num_nota': numNota, 'codfilial': codFilial}),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> decodedResponse = jsonDecode(response.body);
+
+        if (decodedResponse['success'] == true) {
+          return decodedResponse['data'] as List<dynamic>;
+        } else {
+          final errorMsg =
+              decodedResponse['error'] ??
+              'Erro desconhecido retornado pela API';
+          throw Exception(errorMsg);
+        }
+      } else {
+        // NOVO: Extrai a mensagem de erro detalhada do JSON, se existir
+        String erroDetalhado = 'Código ${response.statusCode}';
+        try {
+          final jsonErro = jsonDecode(response.body);
+          if (jsonErro['error'] != null) {
+            erroDetalhado = jsonErro['error'];
+          }
+        } catch (_) {} // Se não for JSON, ignora e lança o erro genérico
+
+        throw Exception(erroDetalhado);
+      }
+    } catch (e) {
+      debugPrint('Erro no consultarItensNota: $e');
+      // Repassa o erro para ser tratado pela tela (exibir SnackBar)
+      throw Exception('Falha ao consultar itens da nota: $e');
+    }
+  }
+
   Future<Uint8List> visualizarAnexo({
     required int anexoId,
     bool download = false,
